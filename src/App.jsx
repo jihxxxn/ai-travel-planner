@@ -9,6 +9,14 @@ const CITY_CURRENCY = {
   "파리": "EUR", "로마": "EUR", "바르셀로나": "EUR",
   "홍콩": "HKD", "방콕": "THB", "싱가포르": "SGD"
 };
+const CITY_ENGLISH = {
+  "상하이": "Shanghai", "베이징": "Beijing", "청두": "Chengdu", "시안": "Xian",
+  "도쿄": "Tokyo", "오사카": "Osaka", "삿포로": "Sapporo",
+  "시드니": "Sydney", "멜버른": "Melbourne",
+  "뉴욕": "New York", "LA": "Los Angeles", "샌프란시스코": "San Francisco",
+  "파리": "Paris", "로마": "Rome", "바르셀로나": "Barcelona",
+  "홍콩": "Hong Kong", "방콕": "Bangkok", "싱가포르": "Singapore"
+};
 
 function getCategoryColor(cat) {
   if (!cat) return "#555";
@@ -40,6 +48,8 @@ export default function TravelPlanner() {
   const [exchangeRate, setExchangeRate] = useState(null);
   const [rateLoading, setRateLoading] = useState(false);
   const [error, setError] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   const styleOptions = [
     "인스타 감성 📸", "걷기 최소화 🚗",
@@ -64,6 +74,49 @@ export default function TravelPlanner() {
     setCurrency(detectedCurrency);
     if (detectedCurrency) fetchExchangeRate(detectedCurrency);
   }, [city]);
+
+  // Fetch weather when city changes
+  useEffect(() => {
+    if (city.trim()) {
+      fetchWeather(city);
+    }
+  }, [city]);
+
+  const fetchWeather = async (cityName) => {
+    setWeatherLoading(true);
+    setWeather(null);
+    try {
+      const englishCity = CITY_ENGLISH[cityName] || cityName;
+      const res = await fetch(`https://wttr.in/${encodeURIComponent(englishCity)}?format=j1`);
+      const data = await res.json();
+      const current = data.current_condition?.[0];
+      if (current) {
+        setWeather({
+          temp: current.temp_C,
+          feelsLike: current.FeelsLikeC,
+          desc: current.weatherDesc?.[0]?.value || "",
+          humidity: current.humidity,
+          wind: current.windspeedKmph,
+          icon: getWeatherIcon(current.weatherCode)
+        });
+      }
+    } catch {
+      setWeather(null);
+    }
+    setWeatherLoading(false);
+  };
+
+  const getWeatherIcon = (code) => {
+    const c = parseInt(code);
+    if (c === 113) return "☀️";
+    if (c === 116) return "⛅";
+    if ([119, 122].includes(c)) return "☁️";
+    if ([143, 248, 260].includes(c)) return "🌫️";
+    if ([176, 263, 266, 293, 296, 299, 302, 305, 308, 311, 314, 353, 356, 359].includes(c)) return "🌧️";
+    if ([179, 182, 185, 227, 230, 317, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377, 392, 395].includes(c)) return "❄️";
+    if ([200, 386, 389].includes(c)) return "⛈️";
+    return "🌤️";
+  };
 
   const fetchExchangeRate = async (targetCurrency) => {
     setRateLoading(true);
@@ -272,6 +325,38 @@ Rules:
                 </div>
               )}
             </div>
+            {/* Weather info */}
+            {(weather || weatherLoading) && (
+              <div style={{
+                marginTop: "12px",
+                padding: "14px 16px",
+                background: "linear-gradient(135deg, #1A1A2E, #16213E)",
+                border: "1px solid #2A3A5A",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                gap: "16px"
+              }}>
+                {weatherLoading ? (
+                  <div style={{ fontSize: "13px", color: "#888" }}>🌡️ 날씨 정보 조회 중...</div>
+                ) : weather && (
+                  <>
+                    <div style={{ fontSize: "32px" }}>{weather.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "4px" }}>
+                        <span style={{ fontSize: "24px", fontWeight: "700", color: "#F5F0E8" }}>{weather.temp}°C</span>
+                        <span style={{ fontSize: "12px", color: "#888" }}>체감 {weather.feelsLike}°C</span>
+                      </div>
+                      <div style={{ fontSize: "13px", color: "#aaa" }}>{weather.desc}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#888" }}>
+                      <span>💧 {weather.humidity}%</span>
+                      <span>💨 {weather.wind}km/h</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Flight times */}
